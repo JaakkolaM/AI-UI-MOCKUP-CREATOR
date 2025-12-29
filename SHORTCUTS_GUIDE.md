@@ -4,7 +4,7 @@ Quick ways to start the AI UI Mockup Creator app and open it in your browser aut
 
 ## Option 1: Batch File (Recommended for Windows)
 
-**Double-click:** `start-ai-renderer.bat`
+**Double-click:** `start-ai-ui-mockup-creator.bat`
 
 - Opens your default browser to http://localhost:3000
 - Starts the Next.js dev server
@@ -14,7 +14,7 @@ Quick ways to start the AI UI Mockup Creator app and open it in your browser aut
 
 ## Option 2: PowerShell Script
 
-**Right-click** `start-ai-renderer.ps1` → **Run with PowerShell**
+**Right-click** `start-ai-ui-mockup-creator.ps1` → **Run with PowerShell**
 
 - Waits 3 seconds for server to start
 - Opens browser automatically

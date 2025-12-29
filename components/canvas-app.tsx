@@ -70,7 +70,7 @@ export function CanvasApp() {
       <header className="bg-card border-b-2 border-border px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">AI Renderer</h1>
+            <h1 className="text-2xl font-bold text-foreground">AI UI Mockup Creator</h1>
             <p className="text-sm text-muted-foreground">Vector Canvas Editor</p>
           </div>
           
@@ -87,10 +87,10 @@ export function CanvasApp() {
                   ? 'bg-primary text-primary-foreground' 
                   : 'bg-secondary hover:bg-accent text-foreground'
               }`}
-              title="Toggle AI Generation Panel"
+              title="Toggle UI Generation Panel"
             >
               <Wand2 size={18} />
-              AI Generate
+              Generate UI
             </button>
             
             {/* Dark Mode Toggle */}

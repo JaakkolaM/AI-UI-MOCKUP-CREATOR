@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AI Renderer - Vector Canvas & AI Generation",
-  description: "Create AI visualizations with vector drawing tools",
+  title: "AI UI Mockup Creator - Vector Canvas & AI Generation",
+  description: "Create UI mockups with vector drawing tools",
+  icons: {
+    icon: '/AI-UI.ico',
+  },
 };
 
 export default function RootLayout({

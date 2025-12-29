@@ -25,6 +25,8 @@ AI-UI-Mockup-Creator/
 ├── lib/
 ├── .env.local          ← Create this file here!
 ├── package.json
+├── start-ai-ui-mockup-creator.bat    ← Optional: Quick start script
+├── start-ai-ui-mockup-creator.ps1    ← Optional: PowerShell script
 └── README.md
 ```
 

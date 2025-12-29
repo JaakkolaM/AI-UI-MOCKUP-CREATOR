@@ -1,10 +1,10 @@
 'use client';
 
 import { useCanvasStore } from '@/lib/store/canvas-store';
-import { 
-  Undo2, 
-  Redo2, 
-  Trash2, 
+import {
+  Undo2,
+  Redo2,
+  Trash2,
   Download,
   Upload,
   Image as ImageIcon,
@@ -12,12 +12,8 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { 
-  ASPECT_RATIOS,
-  RESOLUTION_LONG_EDGE,
-  type AspectRatio,
-  type ResolutionLongEdge,
-  computeTargetFromLongEdge,
+import {
+  DEVICE_PRESETS,
   findMatchingPreset,
 } from '@/lib/sizing';
 
@@ -38,22 +34,22 @@ export function CanvasControls() {
     const match = findMatchingPreset(dimensions.width, dimensions.height);
     return match ? 'preset' : 'custom';
   });
-  const [presetLongEdge, setPresetLongEdge] = useState<ResolutionLongEdge>(() => {
+  const [selectedPreset, setSelectedPreset] = useState(() => {
     const match = findMatchingPreset(dimensions.width, dimensions.height);
-    return match?.longEdge ?? 1024;
+    return match ? DEVICE_PRESETS.findIndex(p =>
+      p.width === match.width && p.height === match.height
+    ) : -1;
   });
-  const [presetAspect, setPresetAspect] = useState<AspectRatio>(() => {
-    const match = findMatchingPreset(dimensions.width, dimensions.height);
-    return match?.aspect ?? '4:3';
-  });
-  
-  // Keep preset selectors in sync when user is using presets.
+
+  // Keep preset selector in sync when user is using presets.
   useEffect(() => {
     if (canvasSizeMode !== 'preset') return;
     const match = findMatchingPreset(dimensions.width, dimensions.height);
     if (match) {
-      setPresetLongEdge(match.longEdge);
-      setPresetAspect(match.aspect);
+      const presetIndex = DEVICE_PRESETS.findIndex(p =>
+        p.width === match.width && p.height === match.height
+      );
+      setSelectedPreset(presetIndex);
     }
   }, [canvasSizeMode, dimensions.width, dimensions.height]);
   
@@ -123,9 +119,9 @@ export function CanvasControls() {
             onChange={(e) => {
               const mode = e.target.value as 'preset' | 'custom';
               setCanvasSizeMode(mode);
-              if (mode === 'preset') {
-                const target = computeTargetFromLongEdge(presetLongEdge, presetAspect);
-                setDimensions(target);
+              if (mode === 'preset' && selectedPreset >= 0 && selectedPreset < DEVICE_PRESETS.length) {
+                const preset = DEVICE_PRESETS[selectedPreset];
+                setDimensions({ width: preset.width, height: preset.height });
               }
             }}
             className="px-3 py-1.5 border border-border rounded text-sm bg-background text-foreground"
@@ -138,37 +134,21 @@ export function CanvasControls() {
           {canvasSizeMode === 'preset' ? (
             <>
               <select
-                value={presetLongEdge}
+                value={selectedPreset}
                 onChange={(e) => {
-                  const longEdge = Number(e.target.value) as ResolutionLongEdge;
-                  setPresetLongEdge(longEdge);
-                  const target = computeTargetFromLongEdge(longEdge, presetAspect);
-                  setDimensions(target);
+                  const presetIndex = Number(e.target.value);
+                  setSelectedPreset(presetIndex);
+                  if (presetIndex >= 0 && presetIndex < DEVICE_PRESETS.length) {
+                    const preset = DEVICE_PRESETS[presetIndex];
+                    setDimensions({ width: preset.width, height: preset.height });
+                  }
                 }}
                 className="px-3 py-1.5 border border-border rounded text-sm bg-background text-foreground"
-                title="Resolution (long edge)"
+                title="Device preset"
               >
-                {RESOLUTION_LONG_EDGE.map((r) => (
-                  <option key={r} value={r}>
-                    {r === 1024 ? '1K' : r === 2048 ? '2K' : '4K'}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={presetAspect}
-                onChange={(e) => {
-                  const aspect = e.target.value as AspectRatio;
-                  setPresetAspect(aspect);
-                  const target = computeTargetFromLongEdge(presetLongEdge, aspect);
-                  setDimensions(target);
-                }}
-                className="px-3 py-1.5 border border-border rounded text-sm bg-background text-foreground"
-                title="Aspect ratio"
-              >
-                {ASPECT_RATIOS.map((a) => (
-                  <option key={a} value={a}>
-                    {a}
+                {DEVICE_PRESETS.map((preset, index) => (
+                  <option key={index} value={index}>
+                    {preset.name}
                   </option>
                 ))}
               </select>

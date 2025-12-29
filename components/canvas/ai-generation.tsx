@@ -1,48 +1,25 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
-import { Wand2, Loader2, Download, Image as ImageIcon, X } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { Wand2, Loader2, Download, Image as ImageIcon, X, Code, Eye } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { useCanvasStore } from '@/lib/store/canvas-store';
-import { lightingPresets } from '@/lib/presets';
-import {
-  ASPECT_RATIOS,
-  RESOLUTION_LONG_EDGE,
-  type AspectRatio,
-  type ResolutionLongEdge,
-  computeTargetFromLongEdge,
-} from '@/lib/sizing';
 
 export function AIGeneration() {
   const [prompt, setPrompt] = useState('');
   const [useCanvas, setUseCanvas] = useState(false);
-  const [quality, setQuality] = useState<'preview' | 'final'>('preview');
+  const [model, setModel] = useState<'flash' | 'pro'>('flash');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
-  const [generatedMeta, setGeneratedMeta] = useState<{ width: number; height: number } | null>(null);
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  const [generatedPreview, setGeneratedPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
-  // New state for product rendering features
-  const [selectedPreset, setSelectedPreset] = useState<string>('none');
-  type MaterialRef = { id: string; dataUrl: string; weight: number };
-  const MAX_MATERIAL_REFS = 8;
-  const [materialReferences, setMaterialReferences] = useState<MaterialRef[]>([]);
+
+  // Reference image upload
+  const [referenceImages, setReferenceImages] = useState<{ id: string; dataUrl: string }[]>([]);
+  const MAX_REFERENCE_IMAGES = 5;
 
   const canvasRef = useCanvasStore((state) => state.canvasRef);
   const canvasDimensions = useCanvasStore((state) => state.dimensions);
-  const addShape = useCanvasStore((state) => state.addShape);
-
-  // Output sizing
-  const [outputMode, setOutputMode] = useState<'canvas' | 'preset'>('canvas');
-  const [outputLongEdge, setOutputLongEdge] = useState<ResolutionLongEdge>(2048);
-  const [outputAspect, setOutputAspect] = useState<AspectRatio>('1:1');
-
-  const targetSize = useMemo(() => {
-    if (outputMode === 'canvas') {
-      return { width: canvasDimensions.width, height: canvasDimensions.height };
-    }
-    return computeTargetFromLongEdge(outputLongEdge, outputAspect);
-  }, [outputMode, canvasDimensions.width, canvasDimensions.height, outputLongEdge, outputAspect]);
 
   const readFileAsDataUrl = (file: File) =>
     new Promise<string>((resolve, reject) => {
@@ -52,31 +29,30 @@ export function AIGeneration() {
       reader.readAsDataURL(file);
     });
 
-  // Material reference upload handler (multi)
-  const onMaterialDrop = useCallback(
+  // Reference image upload handler
+  const onReferenceDrop = useCallback(
     async (acceptedFiles: File[]) => {
       if (!acceptedFiles.length) return;
 
-      const availableSlots = Math.max(0, MAX_MATERIAL_REFS - materialReferences.length);
+      const availableSlots = Math.max(0, MAX_REFERENCE_IMAGES - referenceImages.length);
       if (availableSlots <= 0) return;
 
       const filesToAdd = acceptedFiles.slice(0, availableSlots);
       const dataUrls = await Promise.all(filesToAdd.map(readFileAsDataUrl));
 
-      setMaterialReferences((prev) => [
+      setReferenceImages((prev) => [
         ...prev,
         ...dataUrls.map((dataUrl) => ({
-          id: `mat-${Date.now()}-${Math.random()}`,
+          id: `ref-${Date.now()}-${Math.random()}`,
           dataUrl,
-          weight: 0.7,
         })),
       ]);
     },
-    [materialReferences.length]
+    [referenceImages.length]
   );
 
-  const { getRootProps: getMaterialRootProps, getInputProps: getMaterialInputProps, isDragActive: isMaterialDragActive } = useDropzone({
-    onDrop: onMaterialDrop,
+  const { getRootProps: getReferenceRootProps, getInputProps: getReferenceInputProps, isDragActive: isReferenceDragActive } = useDropzone({
+    onDrop: onReferenceDrop,
     accept: {
       'image/*': ['.png', '.jpg', '.jpeg', '.webp']
     },
@@ -97,12 +73,12 @@ export function AIGeneration() {
         quality: 1,
         multiplier: 1,
       });
-      
+
       if (!dataURL) {
         console.error('Canvas export returned empty data URL');
         return null;
       }
-      
+
       return dataURL;
     } catch (error) {
       console.error('Failed to export canvas:', error);
@@ -118,8 +94,8 @@ export function AIGeneration() {
 
     setIsGenerating(true);
     setError(null);
-    setGeneratedImage(null);
-    setGeneratedMeta(null);
+    setGeneratedCode(null);
+    setGeneratedPreview(null);
 
     try {
       let canvasImage = null;
@@ -130,7 +106,7 @@ export function AIGeneration() {
         }
       }
 
-      const response = await fetch('/api/generate', {
+      const response = await fetch('/api/generate-ui', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -139,115 +115,138 @@ export function AIGeneration() {
           prompt,
           canvasImage,
           useCanvas,
-          quality,
-          preset: selectedPreset,
-          materialReferences: materialReferences.map((m) => ({
-            dataUrl: m.dataUrl,
-            weight: m.weight,
-          })),
-          outputMode,
-          outputLongEdge: outputMode === 'preset' ? outputLongEdge : undefined,
-          outputAspectRatio: outputMode === 'preset' ? outputAspect : undefined,
-          outputWidth: outputMode === 'canvas' ? canvasDimensions.width : undefined,
-          outputHeight: outputMode === 'canvas' ? canvasDimensions.height : undefined,
+          model,
+          referenceImages: referenceImages.map(img => img.dataUrl),
+          canvasDimensions,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate image');
+        throw new Error(data.error || 'Failed to generate UI');
       }
 
-      if (data.success && data.imageUrl) {
-        setGeneratedImage(data.imageUrl);
-        if (typeof data.outputWidth === 'number' && typeof data.outputHeight === 'number') {
-          setGeneratedMeta({ width: data.outputWidth, height: data.outputHeight });
-        }
+      if (data.success && data.uiCode) {
+        setGeneratedCode(data.uiCode);
+        // Create a preview window with the generated UI
+        const previewUrl = URL.createObjectURL(new Blob([data.uiCode], { type: 'text/html' }));
+        setGeneratedPreview(previewUrl);
       } else {
-        throw new Error('No image URL received');
+        throw new Error('No UI code received');
       }
     } catch (err: any) {
       console.error('Generation error:', err);
-      setError(err.message || 'Failed to generate image');
+      setError(err.message || 'Failed to generate UI');
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleAddToCanvas = () => {
-    if (!generatedImage) return;
+  const handleExportCode = () => {
+    if (!generatedCode) return;
 
-    const id = `shape-${Date.now()}-${Math.random()}`;
-    const meta = generatedMeta ?? targetSize;
-    const maxOnCanvas = 400;
-    const scale = maxOnCanvas / Math.max(meta.width, meta.height);
-    const displayWidth = Math.max(1, Math.round(meta.width * scale));
-    const displayHeight = Math.max(1, Math.round(meta.height * scale));
+    // Create a complete HTML document with Tailwind
+    const fullHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generated UI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+  ${generatedCode}
+</body>
+</html>`.trim();
 
-    addShape({
-      id,
-      type: 'image',
-      src: generatedImage,
-      x: 100,
-      y: 100,
-      width: displayWidth,
-      height: displayHeight,
-      scaleX: 1,
-      scaleY: 1,
-      rotation: 0,
-      strokeColor: '',
-      fillColor: '',
-      strokeWidth: 0,
-      opacity: 1,
-    });
+    const blob = new Blob([fullHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'generated-ui.html';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
 
-    setGeneratedImage(null);
-    setGeneratedMeta(null);
+  const handlePreview = () => {
+    if (generatedCode) {
+      // Create a complete HTML document with Tailwind
+      const fullHtml = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Generated UI Preview</title>
+          <script src="https://cdn.tailwindcss.com"></script>
+        </head>
+        <body class="bg-gray-100">
+          ${generatedCode}
+        </body>
+        </html>
+      `;
+      const previewUrl = URL.createObjectURL(new Blob([fullHtml], { type: 'text/html' }));
+      window.open(previewUrl, '_blank', `width=${canvasDimensions.width},height=${canvasDimensions.height},resizable=yes,scrollbars=yes`);
+    }
   };
 
   return (
     <div className="w-80 border-l bg-sidebar text-sidebar-foreground p-4 flex flex-col overflow-y-auto">
       <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
         <Wand2 size={20} />
-        AI Generation
+        Generate UI
       </h2>
 
       {/* Prompt Input */}
       <div className="mb-4">
         <label className="text-xs font-medium block mb-2 text-foreground">
-          Prompt
+          UI Description
         </label>
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Describe the image you want to generate..."
+          placeholder="Describe the UI you want to generate..."
           className="w-full px-3 py-2 border border-border rounded bg-background text-foreground text-sm resize-none"
           rows={4}
         />
       </div>
 
-      {/* Lighting Preset Dropdown */}
+      {/* Model Selection */}
       <div className="mb-4">
         <label className="text-xs font-medium block mb-2 text-foreground">
-          Lighting Preset
+          Model
         </label>
-        <select
-          value={selectedPreset}
-          onChange={(e) => setSelectedPreset(e.target.value)}
-          className="w-full px-3 py-2 border border-border rounded bg-background text-foreground text-sm cursor-pointer"
-        >
-          {Object.entries(lightingPresets).map(([key, preset]) => (
-            <option key={key} value={key}>
-              {preset.name}
-            </option>
-          ))}
-        </select>
-        {selectedPreset !== 'none' && (
-          <p className="text-xs text-muted-foreground mt-1">
-            {lightingPresets[selectedPreset].description}
-          </p>
-        )}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setModel('flash')}
+            className={`flex-1 px-3 py-2 rounded text-xs font-medium ${
+              model === 'flash'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-card hover:bg-accent text-card-foreground border border-border'
+            }`}
+          >
+            Flash (Fast)
+          </button>
+          <button
+            onClick={() => setModel('pro')}
+            className={`flex-1 px-3 py-2 rounded text-xs font-medium ${
+              model === 'pro'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-card hover:bg-accent text-card-foreground border border-border'
+            }`}
+          >
+            Pro (HQ)
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          {model === 'flash'
+            ? 'Gemini 3 Flash: Fast generation with good quality'
+            : 'Gemini 3 Pro: Higher quality with more detailed output'}
+        </p>
       </div>
 
       {/* Use Canvas Checkbox */}
@@ -268,19 +267,19 @@ export function AIGeneration() {
         )}
       </div>
 
-      {/* Material Reference Upload */}
+      {/* Reference Image Upload */}
       <div className="mb-4">
         <label className="text-xs font-medium block mb-2 text-foreground">
-          Material References (Optional)
+          Reference Images (Optional)
         </label>
-        
+
         <div className="space-y-3">
-          <div {...getMaterialRootProps()} className="cursor-pointer">
-            <input {...getMaterialInputProps()} />
+          <div {...getReferenceRootProps()} className="cursor-pointer">
+            <input {...getReferenceInputProps()} />
             <div
               className={`
                 w-full px-4 py-3 rounded border-2 border-dashed flex items-center justify-center gap-2 text-sm
-                ${isMaterialDragActive
+                ${isReferenceDragActive
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border hover:border-primary/50 text-muted-foreground hover:text-foreground'
                 }
@@ -288,165 +287,40 @@ export function AIGeneration() {
             >
               <ImageIcon size={16} />
               <span>
-                {materialReferences.length >= MAX_MATERIAL_REFS
-                  ? `Max ${MAX_MATERIAL_REFS} references reached`
-                  : `Add material textures (${materialReferences.length}/${MAX_MATERIAL_REFS})`}
+                {referenceImages.length >= MAX_REFERENCE_IMAGES
+                  ? `Max ${MAX_REFERENCE_IMAGES} references reached`
+                  : `Add reference images (${referenceImages.length}/${MAX_REFERENCE_IMAGES})`}
               </span>
             </div>
           </div>
 
-          {materialReferences.length > 0 && (
+          {referenceImages.length > 0 && (
             <div className="space-y-2">
               <div className="grid grid-cols-2 gap-2">
-                {materialReferences.map((m) => (
-                  <div key={m.id} className="border border-border rounded overflow-hidden">
+                {referenceImages.map((img) => (
+                  <div key={img.id} className="border border-border rounded overflow-hidden">
                     <div className="relative">
                       <img
-                        src={m.dataUrl}
-                        alt="Material Reference"
+                        src={img.dataUrl}
+                        alt="Reference"
                         className="w-full h-24 object-cover"
                       />
                       <button
                         onClick={() =>
-                          setMaterialReferences((prev) => prev.filter((x) => x.id !== m.id))
+                          setReferenceImages((prev) => prev.filter((x) => x.id !== img.id))
                         }
                         className="absolute top-1 right-1 p-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded"
-                        title="Remove material"
+                        title="Remove reference"
                       >
                         <X size={14} />
                       </button>
                     </div>
-
-                    <div className="p-2 space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Intensity</span>
-                        <span className="text-foreground">{Math.round(m.weight * 100)}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        value={m.weight}
-                        onChange={(e) => {
-                          const w = Number(e.target.value);
-                          setMaterialReferences((prev) =>
-                            prev.map((x) => (x.id === m.id ? { ...x, weight: w } : x))
-                          );
-                        }}
-                        className="w-full"
-                      />
-                    </div>
                   </div>
                 ))}
               </div>
-
-              <p className="text-xs text-muted-foreground">
-                All references are applied; higher intensity influences materials more strongly.
-              </p>
             </div>
           )}
         </div>
-      </div>
-
-      {/* Quality Selection */}
-      <div className="mb-4">
-        <label className="text-xs font-medium block mb-2 text-foreground">
-          Quality
-        </label>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setQuality('preview')}
-            className={`flex-1 px-3 py-2 rounded text-xs font-medium ${
-              quality === 'preview'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-card hover:bg-accent text-card-foreground border border-border'
-            }`}
-          >
-            Preview (Fast)
-          </button>
-          <button
-            onClick={() => setQuality('final')}
-            className={`flex-1 px-3 py-2 rounded text-xs font-medium ${
-              quality === 'final'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-card hover:bg-accent text-card-foreground border border-border'
-            }`}
-          >
-            Final (HQ)
-          </button>
-        </div>
-        <p className="text-xs text-muted-foreground mt-1">
-          {quality === 'preview' 
-            ? 'Nano Banana: Fast generation with low latency' 
-            : 'Nano Banana Pro: 4K resolution, high fidelity'}
-        </p>
-      </div>
-
-      {/* Output Size */}
-      <div className="mb-4">
-        <label className="text-xs font-medium block mb-2 text-foreground">
-          Output Size
-        </label>
-
-        <div className="flex flex-col gap-2">
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="radio"
-              name="outputMode"
-              checked={outputMode === 'canvas'}
-              onChange={() => setOutputMode('canvas')}
-              className="cursor-pointer"
-            />
-            <span className="text-foreground">Use current canvas size</span>
-            <span className="text-xs text-muted-foreground">
-              ({canvasDimensions.width}×{canvasDimensions.height})
-            </span>
-          </label>
-
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="radio"
-              name="outputMode"
-              checked={outputMode === 'preset'}
-              onChange={() => setOutputMode('preset')}
-              className="cursor-pointer"
-            />
-            <span className="text-foreground">Preset</span>
-          </label>
-
-          {outputMode === 'preset' && (
-            <div className="grid grid-cols-2 gap-2">
-              <select
-                value={outputLongEdge}
-                onChange={(e) => setOutputLongEdge(Number(e.target.value) as ResolutionLongEdge)}
-                className="w-full px-3 py-2 border border-border rounded bg-background text-foreground text-sm cursor-pointer"
-              >
-                {RESOLUTION_LONG_EDGE.map((r) => (
-                  <option key={r} value={r}>
-                    {r === 1024 ? '1K' : r === 2048 ? '2K' : '4K'}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={outputAspect}
-                onChange={(e) => setOutputAspect(e.target.value as AspectRatio)}
-                className="w-full px-3 py-2 border border-border rounded bg-background text-foreground text-sm cursor-pointer"
-              >
-                {ASPECT_RATIOS.map((a) => (
-                  <option key={a} value={a}>
-                    {a}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
-
-        <p className="text-xs text-muted-foreground mt-1">
-          Target: {targetSize.width}×{targetSize.height}px
-        </p>
       </div>
 
       {/* Generate Button */}
@@ -458,12 +332,12 @@ export function AIGeneration() {
         {isGenerating ? (
           <>
             <Loader2 size={18} className="animate-spin" />
-            Generating...
+            Generating UI...
           </>
         ) : (
           <>
             <Wand2 size={18} />
-            Generate Image
+            Generate UI
           </>
         )}
       </button>
@@ -475,32 +349,70 @@ export function AIGeneration() {
         </div>
       )}
 
-      {/* Generated Image Preview */}
-      {generatedImage && (
+      {/* Generated UI Preview */}
+      {generatedCode && (
         <div className="space-y-3">
           <div className="border border-border rounded overflow-hidden">
-            <img
-              src={generatedImage}
-              alt="Generated"
-              className="w-full h-auto"
-            />
+            <div className="bg-muted px-3 py-2 text-xs font-medium text-muted-foreground flex justify-between items-center">
+              <span>Generated UI</span>
+              <div className="flex gap-1">
+                <button
+                  onClick={handlePreview}
+                  className="p-1 hover:bg-background rounded"
+                  title="Preview in new window"
+                >
+                  <Eye size={14} />
+                </button>
+                <button
+                  onClick={handleExportCode}
+                  className="p-1 hover:bg-background rounded"
+                  title="Export code"
+                >
+                  <Code size={14} />
+                </button>
+                <button
+                  onClick={() => navigator.clipboard.writeText(generatedCode || '')}
+                  className="p-1 hover:bg-background rounded"
+                  title="Copy code"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="p-2 max-h-40 overflow-y-auto bg-background">
+              <pre className="text-xs text-muted-foreground">
+                {generatedCode.length > 200 ? generatedCode.substring(0, 200) + '...' : generatedCode}
+              </pre>
+            </div>
           </div>
           <div className="flex gap-2">
             <button
-              onClick={handleAddToCanvas}
+              onClick={handlePreview}
               className="flex-1 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded text-sm font-medium flex items-center justify-center gap-2"
             >
-              <Download size={16} />
-              Add to Canvas
+              <Eye size={16} />
+              Preview
             </button>
-            <a
-              href={generatedImage}
-              download="ai-generated-image.png"
+            <button
+              onClick={handleExportCode}
               className="flex-1 px-3 py-2 bg-card hover:bg-accent border border-border text-card-foreground rounded text-sm font-medium flex items-center justify-center gap-2"
             >
-              <Download size={16} />
-              Download
-            </a>
+              <Code size={16} />
+              Export Code
+            </button>
+            <button
+              onClick={() => navigator.clipboard.writeText(generatedCode || '')}
+              className="px-3 py-2 bg-card hover:bg-accent border border-border text-card-foreground rounded text-sm font-medium flex items-center justify-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              Copy
+            </button>
           </div>
         </div>
       )}

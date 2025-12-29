@@ -1,58 +1,35 @@
-export const RESOLUTION_LONG_EDGE = [1024, 2048, 4096] as const;
-export type ResolutionLongEdge = (typeof RESOLUTION_LONG_EDGE)[number];
-
-export const ASPECT_RATIOS = ['1:1', '4:3', '3:4', '16:9', '9:16'] as const;
-export type AspectRatio = (typeof ASPECT_RATIOS)[number];
-
-export function parseAspectRatio(aspect: AspectRatio): number {
-  const [w, h] = aspect.split(':').map((n) => Number(n));
-  return w / h;
-}
-
-export function computeTargetFromLongEdge(
-  longEdge: number,
-  aspect: AspectRatio
-): { width: number; height: number } {
-  const ratio = parseAspectRatio(aspect);
-  let width: number;
-  let height: number;
-
-  if (ratio >= 1) {
-    width = longEdge;
-    height = Math.round(longEdge / ratio);
-  } else {
-    height = longEdge;
-    width = Math.round(longEdge * ratio);
-  }
-
-  width = Math.max(1, Math.round(width));
-  height = Math.max(1, Math.round(height));
-  return { width, height };
-}
-
-export function makeEvenDimensions(dim: { width: number; height: number }): {
+export interface DevicePreset {
+  name: string;
   width: number;
   height: number;
-} {
-  // Some image pipelines prefer even dimensions. Keep >= 2.
-  let width = Math.max(2, dim.width);
-  let height = Math.max(2, dim.height);
-  if (width % 2 !== 0) width -= 1;
-  if (height % 2 !== 0) height -= 1;
-  return { width, height };
+  description: string;
 }
+
+export const DEVICE_PRESETS: DevicePreset[] = [
+  // Mobile presets
+  { name: 'Mobile (iPhone SE)', width: 375, height: 667, description: 'iPhone SE, common Android' },
+  { name: 'Mobile (iPhone 12)', width: 390, height: 844, description: 'iPhone 12/13/14' },
+  { name: 'Mobile (iPhone 14 Pro Max)', width: 430, height: 932, description: 'iPhone 14 Pro Max' },
+  { name: 'Mobile (Samsung Galaxy S22)', width: 384, height: 854, description: 'Samsung Galaxy S22' },
+
+  // Tablet presets
+  { name: 'Tablet (iPad)', width: 768, height: 1024, description: 'iPad (portrait)' },
+  { name: 'Tablet (iPad Pro)', width: 1024, height: 1366, description: 'iPad Pro (portrait)' },
+  { name: 'Tablet (Android)', width: 800, height: 1280, description: 'Common Android tablet' },
+
+  // Web presets
+  { name: 'Web (Laptop)', width: 1366, height: 768, description: 'Common laptop resolution' },
+  { name: 'Web (Desktop)', width: 1920, height: 1080, description: 'Full HD desktop' },
+  { name: 'Web (Large Desktop)', width: 2560, height: 1440, description: 'QHD desktop' },
+];
 
 export function findMatchingPreset(
   width: number,
   height: number
-): { longEdge: ResolutionLongEdge; aspect: AspectRatio } | null {
-  for (const longEdge of RESOLUTION_LONG_EDGE) {
-    for (const aspect of ASPECT_RATIOS) {
-      const t = computeTargetFromLongEdge(longEdge, aspect);
-      if (t.width === width && t.height === height) return { longEdge, aspect };
-    }
-  }
-  return null;
+): DevicePreset | null {
+  return DEVICE_PRESETS.find(preset =>
+    preset.width === width && preset.height === height
+  ) || null;
 }
 
 
