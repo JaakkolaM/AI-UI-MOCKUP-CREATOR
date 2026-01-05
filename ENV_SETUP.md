@@ -1,29 +1,53 @@
 # Environment Variables Setup for AI UI Mockup Creator
 
-To enable AI image generation in AI UI Mockup Creator, you need to create a `.env.local` file in the root directory with your **Google Gemini API key**.
+To enable AI features in AI UI Mockup Creator, you can use either Google's Gemini API or OpenRouter with Zhipu AI's GLM-4.6v model.
 
-## Step 1: Get Google Gemini API Key (FREE)
+## Step 1: Choose Your AI Provider
+
+You have two options:
+
+### Option A: Google Gemini API (Cloud-based)
 
 1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
 2. Sign in with your Google account
 3. Click "**Get API Key**" or "**Create API Key**"
 4. Copy your API key (starts with `AIza...`)
 
-**What it does:** 
+**What it does:**
 - Analyzes your canvas sketches
 - Generates images using Nano Banana models
 - Enhances your prompts for better results
+
+### Option B: OpenRouter with GLM-4.6v (Cloud-based)
+
+1. Go to [OpenRouter](https://openrouter.ai/keys)
+2. Sign in or create an account
+3. Click "**Create API Key**"
+4. Copy your API key
+5. The default model is `z-ai/glm-4.6v` (a powerful vision-language model by Zhipu AI)
+
+**What it does:**
+- Analyzes your canvas sketches
+- Generates UI code with excellent understanding of visual elements
+- Enhances your prompts for better results
+- Supports both text and vision capabilities
 
 ## Step 2: Create .env.local File
 
 Create a file named `.env.local` in the root directory:
 
 ```env
-# Google Gemini API Key
+# Google Gemini API Key (required if using Gemini)
 GOOGLE_GEMINI_API_KEY=your_gemini_api_key_here
+
+# OpenRouter API Key (required if using OpenRouter)
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+
+# OpenRouter Model Configuration (optional)
+OPENROUTER_DEFAULT_MODEL=z-ai/glm-4.6v
 ```
 
-Replace `your_gemini_api_key_here` with your actual API key.
+Replace `your_gemini_api_key_here` and `your_openrouter_api_key_here` with your actual API keys.
 
 ## Step 3: Restart Development Server
 
@@ -33,8 +57,9 @@ If the dev server is running, restart it to load the new environment variables:
 npm run dev
 ```
 
-## How Gemini's Image Generation Works
+## How the AI Providers Work
 
+### With Google Gemini (Cloud-based)
 Google Gemini now includes image generation through their "Nano Banana" models:
 
 1. 🎨 **Nano Banana** (Gemini 2.5 Flash Image):
@@ -46,18 +71,25 @@ Google Gemini now includes image generation through their "Nano Banana" models:
    - 4K resolution output
    - "Thinking" mode for complex reasoning
    - High-fidelity, professional quality
-   
+
 3. 🧠 **Canvas Analysis**:
    - Uses Gemini vision to understand your sketches
    - Enhances prompts based on visual elements
    - Combines text + image for better results
 
+### With OpenRouter GLM-4.6v (Cloud-based)
+- Uses Zhipu AI's GLM-4.6v model, a powerful vision-language model
+- Processes both text and image inputs
+- Excellent understanding of UI/UX patterns and design principles
+- For image generation, the prompt is enhanced but actual image generation requires a separate service
+- High-quality text generation for UI code
+
 ## Important Notes
 
 - ⚠️ **Never commit `.env.local` to Git** - it's already in `.gitignore`
 - The `.env.local` file should only exist on your local machine
-- Each developer/deployment needs their own API key
-- Only one API key needed - simple and free!
+- Each developer/deployment needs their own API keys
+- You can use both providers simultaneously or choose one
 
 ## Pricing
 
@@ -71,5 +103,10 @@ Google Gemini now includes image generation through their "Nano Banana" models:
   - Check current pricing at [ai.google.dev/pricing](https://ai.google.dev/pricing)
   - Nano Banana models are very cost-effective
 
-**Note:** Image generation models may have different rate limits than text models. Check the [Google AI Studio documentation](https://ai.google.dev/gemini-api/docs) for the latest information.
+**OpenRouter:**
+- 💰 **Pay-per-use** pricing
+  - Check current pricing at [openrouter.ai/models](https://openrouter.ai/models)
+  - GLM-4.6v offers competitive pricing for a powerful model
+  - No free tier, but very affordable for most use cases
 
+**Note:** Image generation models may have different rate limits than text models. Check the respective provider's documentation for the latest information.

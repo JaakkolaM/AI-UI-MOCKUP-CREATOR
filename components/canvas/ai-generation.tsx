@@ -9,6 +9,8 @@ export function AIGeneration() {
   const [prompt, setPrompt] = useState('');
   const [useCanvas, setUseCanvas] = useState(false);
   const [model, setModel] = useState<'flash' | 'pro'>('flash');
+  const [openRouterModel, setOpenRouterModel] = useState<'glm-4.6v' | 'qwen3-vl'>('glm-4.6v');
+  const [provider, setProvider] = useState<'gemini' | 'openrouter'>('gemini');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [generatedPreview, setGeneratedPreview] = useState<string | null>(null);
@@ -47,6 +49,45 @@ export function AIGeneration() {
           dataUrl,
         })),
       ]);
+    },
+    [referenceImages.length]
+  );
+
+  // Handle clipboard paste
+  const handlePaste = useCallback(
+    async (e: React.ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const availableSlots = Math.max(0, MAX_REFERENCE_IMAGES - referenceImages.length);
+      if (availableSlots <= 0) return;
+
+      const images: string[] = [];
+
+      for (let i = 0; i < items.length && images.length < availableSlots; i++) {
+        const item = items[i];
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            try {
+              const dataUrl = await readFileAsDataUrl(file);
+              images.push(dataUrl);
+            } catch (error) {
+              console.error('Failed to read pasted image:', error);
+            }
+          }
+        }
+      }
+
+      if (images.length > 0) {
+        setReferenceImages((prev) => [
+          ...prev,
+          ...images.map((dataUrl) => ({
+            id: `ref-${Date.now()}-${Math.random()}`,
+            dataUrl,
+          })),
+        ]);
+      }
     },
     [referenceImages.length]
   );
@@ -116,8 +157,10 @@ export function AIGeneration() {
           canvasImage,
           useCanvas,
           model,
+          openRouterModel,
           referenceImages: referenceImages.map(img => img.dataUrl),
           canvasDimensions,
+          provider,
         }),
       });
 
@@ -132,6 +175,8 @@ export function AIGeneration() {
         // Create a preview window with the generated UI
         const previewUrl = URL.createObjectURL(new Blob([data.uiCode], { type: 'text/html' }));
         setGeneratedPreview(previewUrl);
+      } else if (data.error) {
+        throw new Error(data.error || 'Model did not return valid HTML code');
       } else {
         throw new Error('No UI code received');
       }
@@ -201,6 +246,40 @@ export function AIGeneration() {
         Generate UI
       </h2>
 
+      {/* Provider Selection */}
+      <div className="mb-4">
+        <label className="text-xs font-medium block mb-2 text-foreground">
+          AI Provider
+        </label>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setProvider('gemini')}
+            className={`flex-1 px-3 py-2 rounded text-xs font-medium ${
+              provider === 'gemini'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-card hover:bg-accent text-card-foreground border border-border'
+            }`}
+          >
+            Gemini
+          </button>
+          <button
+            onClick={() => setProvider('openrouter')}
+            className={`flex-1 px-3 py-2 rounded text-xs font-medium ${
+              provider === 'openrouter'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-card hover:bg-accent text-card-foreground border border-border'
+            }`}
+          >
+            OpenRouter
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          {provider === 'gemini'
+            ? 'Google Gemini API (requires API key)'
+            : 'OpenRouter API with multiple vision models'}
+        </p>
+      </div>
+
       {/* Prompt Input */}
       <div className="mb-4">
         <label className="text-xs font-medium block mb-2 text-foreground">
@@ -215,39 +294,77 @@ export function AIGeneration() {
         />
       </div>
 
-      {/* Model Selection */}
-      <div className="mb-4">
-        <label className="text-xs font-medium block mb-2 text-foreground">
-          Model
-        </label>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setModel('flash')}
-            className={`flex-1 px-3 py-2 rounded text-xs font-medium ${
-              model === 'flash'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-card hover:bg-accent text-card-foreground border border-border'
-            }`}
-          >
-            Flash (Fast)
-          </button>
-          <button
-            onClick={() => setModel('pro')}
-            className={`flex-1 px-3 py-2 rounded text-xs font-medium ${
-              model === 'pro'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-card hover:bg-accent text-card-foreground border border-border'
-            }`}
-          >
-            Pro (HQ)
-          </button>
+      {/* Model Selection - Only show for Gemini */}
+      {provider === 'gemini' && (
+        <div className="mb-4">
+          <label className="text-xs font-medium block mb-2 text-foreground">
+            Model
+          </label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setModel('flash')}
+              className={`flex-1 px-3 py-2 rounded text-xs font-medium ${
+                model === 'flash'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-card hover:bg-accent text-card-foreground border border-border'
+              }`}
+            >
+              Flash (Fast)
+            </button>
+            <button
+              onClick={() => setModel('pro')}
+              className={`flex-1 px-3 py-2 rounded text-xs font-medium ${
+                model === 'pro'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-card hover:bg-accent text-card-foreground border border-border'
+              }`}
+            >
+              Pro (HQ)
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {model === 'flash'
+              ? 'Gemini 3 Flash: Fast generation with good quality'
+              : 'Gemini 3 Pro: Higher quality with more detailed output'}
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground mt-1">
-          {model === 'flash'
-            ? 'Gemini 3 Flash: Fast generation with good quality'
-            : 'Gemini 3 Pro: Higher quality with more detailed output'}
-        </p>
-      </div>
+      )}
+
+      {/* Model Selection - Only show for OpenRouter */}
+      {provider === 'openrouter' && (
+        <div className="mb-4">
+          <label className="text-xs font-medium block mb-2 text-foreground">
+            Model
+          </label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setOpenRouterModel('glm-4.6v')}
+              className={`flex-1 px-3 py-2 rounded text-xs font-medium ${
+                openRouterModel === 'glm-4.6v'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-card hover:bg-accent text-card-foreground border border-border'
+              }`}
+            >
+              GLM-4.6v
+            </button>
+            <button
+              onClick={() => setOpenRouterModel('qwen3-vl')}
+              className={`flex-1 px-3 py-2 rounded text-xs font-medium ${
+                openRouterModel === 'qwen3-vl'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-card hover:bg-accent text-card-foreground border border-border'
+              }`}
+            >
+              Qwen 3 VL
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {openRouterModel === 'glm-4.6v'
+              ? 'Zhipu AI GLM-4.6v: Fast and accurate vision model'
+              : 'Qwen 3 VL: 235B parameter model with advanced vision capabilities'}
+          </p>
+        </div>
+      )}
 
       {/* Use Canvas Checkbox */}
       <div className="mb-4">
@@ -274,7 +391,7 @@ export function AIGeneration() {
         </label>
 
         <div className="space-y-3">
-          <div {...getReferenceRootProps()} className="cursor-pointer">
+          <div {...getReferenceRootProps()} className="cursor-pointer" onPaste={handlePaste}>
             <input {...getReferenceInputProps()} />
             <div
               className={`
@@ -293,6 +410,12 @@ export function AIGeneration() {
               </span>
             </div>
           </div>
+
+          {referenceImages.length < MAX_REFERENCE_IMAGES && (
+            <p className="text-xs text-muted-foreground text-center">
+              Drag & drop, click to select, or paste (Ctrl+V) images
+            </p>
+          )}
 
           {referenceImages.length > 0 && (
             <div className="space-y-2">

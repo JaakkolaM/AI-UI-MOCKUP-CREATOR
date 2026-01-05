@@ -32,5 +32,51 @@ export function findMatchingPreset(
   ) || null;
 }
 
+// Aspect ratios for image generation
+export const ASPECT_RATIOS = [
+  '1:1',
+  '16:9',
+  '9:16',
+  '4:3',
+  '3:4',
+  '21:9',
+  '9:21',
+  '3:2',
+  '2:3',
+  '5:4',
+  '4:5',
+] as const;
+
+// Compute target dimensions from long edge and aspect ratio
+export function computeTargetFromLongEdge(
+  longEdge: number,
+  aspectRatio: string
+): { width: number; height: number } {
+  const [widthRatio, heightRatio] = aspectRatio.split(':').map(Number);
+  const aspect = widthRatio / heightRatio;
+
+  if (widthRatio >= heightRatio) {
+    // Landscape or square - width is the long edge
+    const width = longEdge;
+    const height = Math.round(longEdge / aspect);
+    return { width, height };
+  } else {
+    // Portrait - height is the long edge
+    const height = longEdge;
+    const width = Math.round(longEdge * aspect);
+    return { width, height };
+  }
+}
+
+// Ensure dimensions are even numbers (for better compatibility with some image processing)
+export function makeEvenDimensions(
+  dimensions: { width: number; height: number }
+): { width: number; height: number } {
+  return {
+    width: dimensions.width % 2 === 0 ? dimensions.width : dimensions.width + 1,
+    height: dimensions.height % 2 === 0 ? dimensions.height : dimensions.height + 1,
+  };
+}
+
 
 
