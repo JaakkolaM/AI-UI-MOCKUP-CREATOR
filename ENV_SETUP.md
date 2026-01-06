@@ -17,6 +17,7 @@ You have two options:
 - Analyzes your canvas sketches
 - Generates images using Nano Banana models
 - Enhances your prompts for better results
+- Generates UI code with visual understanding
 
 ### Option B: OpenRouter with GLM-4.6v (Cloud-based)
 
@@ -27,10 +28,10 @@ You have two options:
 5. The default model is `z-ai/glm-4.6v` (a powerful vision-language model by Zhipu AI)
 
 **What it does:**
-- Analyzes your canvas sketches
-- Generates UI code with excellent understanding of visual elements
-- Enhances your prompts for better results
-- Supports both text and vision capabilities
+- Analyzes your canvas sketches with excellent visual understanding
+- Generates UI code with strong adherence to reference images
+- Supports both text and vision capabilities with proper image handling
+- Available models: GLM-4.6v (recommended), Qwen 3 VL
 
 ## Step 2: Create .env.local File
 
@@ -60,7 +61,7 @@ npm run dev
 ## How the AI Providers Work
 
 ### With Google Gemini (Cloud-based)
-Google Gemini now includes image generation through their "Nano Banana" models:
+Google Gemini includes image generation through their "Nano Banana" models:
 
 1. 🎨 **Nano Banana** (Gemini 2.5 Flash Image):
    - Fast generation with low latency
@@ -72,16 +73,17 @@ Google Gemini now includes image generation through their "Nano Banana" models:
    - "Thinking" mode for complex reasoning
    - High-fidelity, professional quality
 
-3. 🧠 **Canvas Analysis**:
+3. 🧠 **Canvas & Reference Analysis**:
    - Uses Gemini vision to understand your sketches
+   - Analyzes reference images for style, colors, and layout
    - Enhances prompts based on visual elements
    - Combines text + image for better results
 
 ### With OpenRouter GLM-4.6v (Cloud-based)
 - Uses Zhipu AI's GLM-4.6v model, a powerful vision-language model
-- Processes both text and image inputs
+- Properly processes both text and image inputs using OpenRouter's multimodal API
 - Excellent understanding of UI/UX patterns and design principles
-- For image generation, the prompt is enhanced but actual image generation requires a separate service
+- Strong adherence to reference images for accurate style matching
 - High-quality text generation for UI code
 
 ## Important Notes

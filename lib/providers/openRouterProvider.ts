@@ -3,7 +3,7 @@ import { AIProvider, Content, GenerationConfig, GenerateContentResult, Part } fr
 
 interface OpenRouterMessage {
   role: string;
-  content: string;
+  content: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
 }
 
 interface OpenRouterRequest {
@@ -19,7 +19,7 @@ interface OpenRouterRequest {
 interface OpenRouterResponse {
   choices: Array<{
     message: {
-      content: string;
+      content: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
     };
   }>;
   model: string;
@@ -46,21 +46,33 @@ export class OpenRouterProvider implements AIProvider {
       const messages: OpenRouterMessage[] = [];
       
       for (const content of contents) {
-        let textContent = '';
+        const contentParts: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
         
         for (const part of content.parts) {
           if ('text' in part) {
-            textContent += part.text + ' ';
+            contentParts.push({
+              type: 'text',
+              text: part.text
+            });
           } else if ('inlineData' in part) {
-            // OpenRouter GLM-4.6v supports vision, but we need to format images differently
-            // For now, we'll include image data as base64 in the message
-            textContent += `[IMAGE: ${part.inlineData.mimeType}] ${part.inlineData.data.substring(0, 100)}... `;
+            // Convert Gemini inlineData to OpenRouter image_url format
+            // OpenRouter expects: { type: 'image_url', image_url: { url: 'data:image/...;base64,...' } }
+            const mimeType = part.inlineData.mimeType || 'image/png';
+            const base64Data = part.inlineData.data;
+            const imageUrl = `data:${mimeType};base64,${base64Data}`;
+            
+            contentParts.push({
+              type: 'image_url',
+              image_url: {
+                url: imageUrl
+              }
+            });
           }
         }
         
         messages.push({
           role: content.role,
-          content: textContent.trim()
+          content: contentParts
         });
       }
 
@@ -104,12 +116,18 @@ export class OpenRouterProvider implements AIProvider {
 
       const data: OpenRouterResponse = await response.json();
       
+      // Handle response content (could be string or array)
+      const responseContent = data.choices[0].message.content;
+      const responseText = typeof responseContent === 'string' 
+        ? responseContent 
+        : responseContent.map(part => part.text || '').join('');
+      
       return {
         response: {
-          text: () => data.choices[0].message.content,
+          text: () => responseText,
           candidates: [{
             content: {
-              parts: [{ text: data.choices[0].message.content }]
+              parts: [{ text: responseText }]
             }
           }]
         }

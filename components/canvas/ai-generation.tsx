@@ -20,6 +20,11 @@ export function AIGeneration() {
   const [referenceImages, setReferenceImages] = useState<{ id: string; dataUrl: string }[]>([]);
   const MAX_REFERENCE_IMAGES = 5;
 
+  // Reference strength settings
+  const [canvasStrength, setCanvasStrength] = useState(60);
+  const [referenceStrength, setReferenceStrength] = useState(70);
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+
   const canvasRef = useCanvasStore((state) => state.canvasRef);
   const canvasDimensions = useCanvasStore((state) => state.dimensions);
 
@@ -161,6 +166,8 @@ export function AIGeneration() {
           referenceImages: referenceImages.map(img => img.dataUrl),
           canvasDimensions,
           provider,
+          canvasStrength,
+          referenceStrength,
         }),
       });
 
@@ -381,6 +388,72 @@ export function AIGeneration() {
           <p className="text-xs text-muted-foreground mt-1">
             The AI will use your canvas sketch as a reference
           </p>
+        )}
+      </div>
+
+      {/* Advanced Settings */}
+      <div className="mb-4">
+        <button
+          onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+          className="w-full text-left text-xs font-medium text-foreground flex items-center justify-between mb-2"
+        >
+          <span>Advanced Settings</span>
+          <svg
+            className={`w-4 h-4 transition-transform ${showAdvancedSettings ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {showAdvancedSettings && (
+          <div className="space-y-4 p-3 bg-card border border-border rounded">
+            {/* Canvas Layout Strength */}
+            <div>
+              <label className="text-xs font-medium block mb-2 text-foreground">
+                Canvas Layout Strength: {canvasStrength}%
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={canvasStrength}
+                onChange={(e) => setCanvasStrength(parseInt(e.target.value))}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {canvasStrength < 30
+                  ? 'Use canvas as loose inspiration'
+                  : canvasStrength < 70
+                    ? 'Balance canvas guidance with creativity'
+                    : 'Strictly follow canvas wireframe layout'}
+              </p>
+            </div>
+
+            {/* Reference Style Strength */}
+            <div>
+              <label className="text-xs font-medium block mb-2 text-foreground">
+                Reference Style Strength: {referenceStrength}%
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={referenceStrength}
+                onChange={(e) => setReferenceStrength(parseInt(e.target.value))}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {referenceStrength < 30
+                  ? 'Use references as inspiration only'
+                  : referenceStrength < 70
+                    ? 'Match reference style patterns'
+                    : 'Closely match reference design, colors, and typography'}
+              </p>
+            </div>
+          </div>
         )}
       </div>
 

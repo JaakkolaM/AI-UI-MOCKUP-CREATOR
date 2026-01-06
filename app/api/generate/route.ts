@@ -39,9 +39,6 @@ export async function POST(request: NextRequest) {
       case 'openrouter':
         providerType = ProviderType.OPENROUTER;
         break;
-      case 'ollama':
-        providerType = ProviderType.GEMINI; // Fall back to Gemini for backward compatibility
-        break;
       default:
         providerType = ProviderType.GEMINI;
     }
